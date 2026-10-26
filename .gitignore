@@ -1,0 +1,15 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller temporary build artifacts
+build/
+dist/
+*.spec
+
+# Logs & temp files
+*.log
+*.tmp
+.vscode/
+.idea/
