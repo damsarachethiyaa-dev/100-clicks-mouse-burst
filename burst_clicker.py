@@ -1,7 +1,7 @@
 """
-⚡ 100-Clicks Mouse Burst Multiplier - Cyber Elite Edition (High Contrast)
+⚡ 100-Clicks Mouse Burst Multiplier - Cyber Elite Edition (Custom Value Support)
 Built with CustomTkinter & High-Performance Canvas Animation Engine
-Every label, button, and indicator is high-contrast, crystal clear, and easily readable.
+Includes custom editable Delay & Speed inputs, quick presets, and live CPS calculations.
 """
 
 import sys
@@ -105,7 +105,7 @@ class BurstClickerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("100-Clicks Multiplier • Cyber Edition")
-        self.root.geometry("510x760")
+        self.root.geometry("520x810")
         self.root.resizable(False, False)
 
         # Set CustomTkinter Theme
@@ -134,13 +134,19 @@ class BurstClickerApp:
         # Settings Variables
         self.selected_button = "Right Click"
         self.burst_count_var = tk.StringVar(value="100")
-        self.delay_ms_var = tk.DoubleVar(value=3.0)
+        self.delay_ms_var = tk.StringVar(value="3.0")
+        self.slider_delay_val = tk.DoubleVar(value=3.0)
         self.sound_var = tk.BooleanVar(value=True)
         self.always_on_top_var = tk.BooleanVar(value=True)
         self.trigger_on_click_var = tk.BooleanVar(value=True)
 
+        self._updating_internally = False
+
         self._build_ui()
         self._apply_always_on_top()
+
+        # Watch custom delay text changes
+        self.delay_ms_var.trace_add("write", self._on_delay_text_changed)
 
         # Audio confirmation on startup
         if self.sound_var.get():
@@ -173,8 +179,8 @@ class BurstClickerApp:
                 LR_DEFAULTSIZE = 0x00000040
                 h_icon = user32.LoadImageW(None, icon_path, IMAGE_ICON, 0, 0, LR_LOADFROMFILE | LR_DEFAULTSIZE)
                 if h_icon:
-                    user32.SendMessageW(hwnd, WM_SETICON, 0, h_icon)  # ICON_SMALL
-                    user32.SendMessageW(hwnd, WM_SETICON, 1, h_icon)  # ICON_BIG
+                    user32.SendMessageW(hwnd, WM_SETICON, 0, h_icon)
+                    user32.SendMessageW(hwnd, WM_SETICON, 1, h_icon)
             except Exception:
                 pass
 
@@ -263,8 +269,8 @@ class BurstClickerApp:
         # Canvas Arena
         self.arena_canvas = tk.Canvas(
             arena_card,
-            width=478,
-            height=160,
+            width=488,
+            height=150,
             bg="#0c0e17",
             highlightthickness=0,
             cursor="crosshair"
@@ -273,7 +279,7 @@ class BurstClickerApp:
         self.arena_canvas.bind("<Button-3>", lambda e: self._on_arena_user_click(e, "Right Click"))
         self.arena_canvas.bind("<Button-1>", lambda e: self._on_arena_user_click(e, "Left Click"))
 
-        # 4. Target Mouse Button Selector (Custom 3-Button Selector with 100% Crisp White & Neon Text)
+        # 4. Target Mouse Button Selector (Custom 3-Button Selector with High Contrast)
         btn_selector_card = ctk.CTkFrame(container, fg_color="#121522", corner_radius=12, border_width=1, border_color="#1e2336")
         btn_selector_card.pack(fill="x", pady=(0, 10), ipady=6)
 
@@ -319,11 +325,11 @@ class BurstClickerApp:
 
         self._refresh_button_selector_colors()
 
-        # 5. Clicks Count & Presets Card
+        # 5. Clicks Count & Speed Settings Card
         settings_card = ctk.CTkFrame(container, fg_color="#121522", corner_radius=12, border_width=1, border_color="#1e2336")
         settings_card.pack(fill="x", pady=(0, 10), ipady=6)
 
-        # Clicks Presets Row
+        # Row A: Clicks Presets & Stepper
         row_preset = ctk.CTkFrame(settings_card, fg_color="transparent")
         row_preset.pack(fill="x", padx=14, pady=(6, 4))
 
@@ -360,9 +366,9 @@ class BurstClickerApp:
             command=lambda: self._adjust_clicks(10)
         ).pack(side="left", padx=2)
 
-        # Quick Preset Pills (High Contrast White Text)
+        # Quick Preset Pills
         pills_row = ctk.CTkFrame(settings_card, fg_color="transparent")
-        pills_row.pack(fill="x", padx=14, pady=(2, 6))
+        pills_row.pack(fill="x", padx=14, pady=(2, 8))
 
         for count in [50, 100, 250, 500, 1000]:
             btn = ctk.CTkButton(
@@ -379,34 +385,80 @@ class BurstClickerApp:
             )
             btn.pack(side="left", expand=True, padx=2)
 
-        # Speed Slider Row
-        slider_card = ctk.CTkFrame(settings_card, fg_color="transparent")
-        slider_card.pack(fill="x", padx=14, pady=(4, 6))
-
-        slider_header = ctk.CTkFrame(slider_card, fg_color="transparent")
-        slider_header.pack(fill="x")
+        # Row B: CLICK DELAY / SPEED with CUSTOM INPUT BOX & PRESETS
+        speed_header_row = ctk.CTkFrame(settings_card, fg_color="transparent")
+        speed_header_row.pack(fill="x", padx=14, pady=(4, 2))
 
         ctk.CTkLabel(
-            slider_header,
+            speed_header_row,
             text="CLICK DELAY / SPEED:",
             font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
             text_color="#b8c0e2"
         ).pack(side="left")
 
-        self.speed_lbl = ctk.CTkLabel(
-            slider_header,
-            text="3 ms (Balanced • ~250 CPS)",
-            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
-            text_color="#00f0ff"
+        # Custom Delay Stepper & Input Entry (ANY value user likes!)
+        delay_stepper_box = ctk.CTkFrame(speed_header_row, fg_color="transparent")
+        delay_stepper_box.pack(side="right")
+
+        ctk.CTkButton(
+            delay_stepper_box, text="-", width=28, height=26, corner_radius=6,
+            fg_color="#22283e", hover_color="#2f3757", text_color="#00f0ff",
+            font=("Segoe UI", 13, "bold"),
+            command=lambda: self._adjust_delay(-1.0)
+        ).pack(side="left", padx=2)
+
+        self.delay_entry = ctk.CTkEntry(
+            delay_stepper_box, textvariable=self.delay_ms_var, width=64, height=26,
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            justify="center", fg_color="#161928", text_color="#ffffff",
+            border_color="#00f0ff", border_width=1, corner_radius=6
         )
-        self.speed_lbl.pack(side="right")
+        self.delay_entry.pack(side="left", padx=2)
+
+        ctk.CTkLabel(
+            delay_stepper_box,
+            text="ms",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color="#00f0ff"
+        ).pack(side="left", padx=(1, 2))
+
+        ctk.CTkButton(
+            delay_stepper_box, text="+", width=28, height=26, corner_radius=6,
+            fg_color="#22283e", hover_color="#2f3757", text_color="#00f0ff",
+            font=("Segoe UI", 13, "bold"),
+            command=lambda: self._adjust_delay(1.0)
+        ).pack(side="left", padx=2)
+
+        # Quick Speed Presets Pills
+        speed_pills_row = ctk.CTkFrame(settings_card, fg_color="transparent")
+        speed_pills_row.pack(fill="x", padx=14, pady=(2, 6))
+
+        for spd in [1.0, 3.0, 5.0, 10.0, 15.0, 25.0, 50.0]:
+            label_text = f"{int(spd)}ms" if spd.is_integer() else f"{spd}ms"
+            btn = ctk.CTkButton(
+                speed_pills_row,
+                text=label_text,
+                width=42,
+                height=24,
+                corner_radius=6,
+                fg_color="#1c2136",
+                hover_color="#2c3456",
+                text_color="#ffffff",
+                font=ctk.CTkFont(family="Segoe UI", size=9, weight="bold"),
+                command=lambda s=spd: self._set_delay_preset(s)
+            )
+            btn.pack(side="left", expand=True, padx=2)
+
+        # Speed Slider
+        slider_card = ctk.CTkFrame(settings_card, fg_color="transparent")
+        slider_card.pack(fill="x", padx=14, pady=(2, 4))
 
         self.speed_slider = ctk.CTkSlider(
             slider_card,
-            from_=1.0,
-            to=15.0,
-            number_of_steps=14,
-            variable=self.delay_ms_var,
+            from_=0.5,
+            to=100.0,
+            number_of_steps=199,
+            variable=self.slider_delay_val,
             command=self._on_slider_change,
             button_color="#00f0ff",
             button_hover_color="#33f5ff",
@@ -414,7 +466,16 @@ class BurstClickerApp:
             fg_color="#1c2136",
             height=16
         )
-        self.speed_slider.pack(fill="x", pady=(4, 2))
+        self.speed_slider.pack(fill="x", pady=(2, 2))
+
+        # Live Dynamic Speed & CPS Rating Description
+        self.speed_lbl = ctk.CTkLabel(
+            slider_card,
+            text="Rating: 3.0 ms (Fast • ~250 CPS)",
+            font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"),
+            text_color="#00f0ff"
+        )
+        self.speed_lbl.pack(anchor="w", pady=(1, 2))
 
         # 6. Feature Switches Row (Crisp White Text)
         switches_row = ctk.CTkFrame(container, fg_color="transparent")
@@ -464,7 +525,7 @@ class BurstClickerApp:
                 text_color="#e0e5f7"
             ).pack(side="left")
 
-        # 8. Footer Counter (Bright & Legible)
+        # 8. Footer Counter
         self.footer_lbl = ctk.CTkLabel(
             container,
             text="⚡ Total Delivered: 0 Clicks  |  Mode: Right Click Multiplier",
@@ -505,17 +566,73 @@ class BurstClickerApp:
         val = max(1, min(10000, val))
         self.burst_count_var.set(str(val))
 
+    def _adjust_delay(self, delta):
+        curr = self._get_delay_ms()
+        new_val = max(0.1, round(curr + delta, 1))
+        self.delay_ms_var.set(f"{new_val:.1f}")
+
+    def _set_delay_preset(self, spd):
+        self.delay_ms_var.set(f"{spd:.1f}")
+
     def _on_slider_change(self, val):
+        if self._updating_internally:
+            return
+        self._updating_internally = True
         ms = round(val, 1)
+        self.delay_ms_var.set(f"{ms:.1f}")
+        self._update_speed_label(ms)
+        self._updating_internally = False
+
+    def _on_delay_text_changed(self, *args):
+        if self._updating_internally:
+            return
+        try:
+            val_str = self.delay_ms_var.get().strip()
+            if not val_str:
+                return
+            ms = float(val_str)
+            self._updating_internally = True
+            # Update slider if within range
+            clamped = max(0.5, min(100.0, ms))
+            self.slider_delay_val.set(clamped)
+            self._update_speed_label(ms)
+            self._updating_internally = False
+        except ValueError:
+            pass
+
+    def _update_speed_label(self, ms):
+        est_cps = int(1000.0 / max(0.2, (1.0 + ms)))
         if ms <= 1.0:
-            desc = "Extreme (350+ CPS)"
+            desc = "Extreme"
         elif ms <= 3.0:
-            desc = "Balanced • Game Safe (Default)"
+            desc = "Fast / Game Safe"
         elif ms <= 6.0:
-            desc = "Moderate (~160 CPS)"
+            desc = "Moderate"
+        elif ms <= 15.0:
+            desc = "Controlled"
+        elif ms <= 30.0:
+            desc = "Steady"
         else:
-            desc = "Slow / Safe (~100 CPS)"
-        self.speed_lbl.configure(text=f"{ms} ms ({desc})")
+            desc = "Slow / Paced"
+        self.speed_lbl.configure(text=f"Rating: {ms} ms ({desc} • ~{est_cps} CPS)")
+
+    def _get_delay_ms(self):
+        try:
+            val = float(self.delay_ms_var.get())
+            return max(0.1, min(60000.0, val))
+        except ValueError:
+            return 3.0
+
+    def _get_delay(self):
+        ms = self._get_delay_ms()
+        return max(0.0001, min(60.0, ms / 1000.0))
+
+    def _get_burst_count(self):
+        try:
+            val = int(self.burst_count_var.get())
+            return max(1, min(10000, val))
+        except ValueError:
+            return 100
 
     def toggle_active(self):
         self.is_active = not self.is_active
@@ -566,20 +683,6 @@ class BurstClickerApp:
             self.particles.append(Particle(x, y, p_color))
         self.shockwaves.append(Shockwave(x, y, max_radius=random.uniform(70, 110), color=color))
 
-    def _get_burst_count(self):
-        try:
-            val = int(self.burst_count_var.get())
-            return max(1, min(10000, val))
-        except ValueError:
-            return 100
-
-    def _get_delay(self):
-        try:
-            val = float(self.delay_ms_var.get())
-            return max(0.0005, min(1.0, val / 1000.0))
-        except ValueError:
-            return 0.003
-
     def _execute_burst(self, is_mouse_triggered=True):
         if self.is_bursting:
             return
@@ -595,7 +698,7 @@ class BurstClickerApp:
 
         clicks_to_fire = max(1, burst_total - 1 if is_mouse_triggered else burst_total)
 
-        cx, cy = 239, 80
+        cx, cy = 244, 75
         self._spawn_burst_effects(cx, cy, color="#ffd600", count=35)
 
         def run_clicks():
@@ -688,7 +791,7 @@ class BurstClickerApp:
 
     def _render_arena(self, t):
         self.arena_canvas.delete("all")
-        w, h = 478, 160
+        w, h = 488, 150
         cx, cy = w // 2, h // 2
 
         grid_step = 26
